@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>2048 Telegram Game</title>
+    <script src="https://telegram.org/js/games.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            touch-action: pan-x pan-y;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        .container {
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .header {
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #ffd166;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .score-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .score-box {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 10px 20px;
+            min-width: 120px;
+        }
+        
+        .score-title {
+            font-size: 0.9rem;
+            color: #eee;
+        }
+        
+        .score-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .game-container {
+            background: rgba(187, 173, 160, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            position: relative;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            touch-action: none;
+        }
+        
+        .game-message {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .game-message p {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        
+        .game-message button {
+            background: #8f7a66;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .game-message button:hover {
+            background: #7c6a5a;
+        }
+        
+        .grid-container {
+            position: relative;
+            background: #bbada0;
+            border-radius: 6px;
+            padding: 15px;
+            touch-action: none;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+        }
+        
+        .grid-row {
+            display: flex;
+            margin-bottom: 15px;
+            height: 22%;
+        }
+        
+        .grid-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .grid-cell {
+            width: 22%;
+            height: 100%;
+            margin-right: 4%;
+            background: rgba(238, 228, 218, 0.35);
+            border-radius: 5px;
+        }
+        
+        .grid-cell:last-child {
+            margin-right: 0;
+        }
+        
+        .tile-container {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            bottom: 15px;
+        }
+        
+        .tile {
+            position: absolute;
+            width: 22%;
+            height: 22%;
+            background: #eee4da;
+            border-radius: 5px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease-in-out;
+            z-index: 10;
+        }
+        
+        .tile-2 { background: #eee4da; color: #776e65; font-size: 2.5rem; }
+        .tile-4 { background: #ede0c8; color: #776e65; font-size: 2.5rem; }
+        .tile-8 { background: #f2b179; color: #f9f6f2; font-size: 2.5rem; }
+        .tile-16 { background: #f59563; color: #f9f6f2; font-size: 2.2rem; }
+        .tile-32 { background: #f67c5f; color: #f9f6f2; font-size: 2.2rem; }
+        .tile-64 { background: #f65e3b; color: #f9f6f2; font-size: 2.2rem; }
+        .tile-128 { background: #edcf72; color: #f9f6f2; font-size: 1.8rem; }
+        .tile-256 { background: #edcc61; color: #f9f6f2; font-size: 1.8rem; }
+        .tile-512 { background: #edc850; color: #f9f6f2; font-size: 1.8rem; }
+        .tile-1024 { background: #edc53f; color: #f9f6f2; font-size: 1.5rem; }
+        .tile-2048 { background: #edc22e; color: #f9f6f2; font-size: 1.5rem; }
+        
+        .new-tile {
+            animation: appear 0.2s;
+        }
+        
+        @keyframes appear {
+            0% { opacity: 0; transform: scale(0); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            background: #8f7a66;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #7c6a5a;
+        }
+        
+        .swipe-indicator {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+        
+        @media (max-width: 520px) {
+            h1 { font-size: 2.5rem; }
+            .tile-2, .tile-4, .tile-8 { font-size: 2rem; }
+            .tile-16, .tile-32, .tile-64 { font-size: 1.8rem; }
+            .tile-128, .tile-256, .tile-512 { font-size: 1.5rem; }
+            .tile-1024, .tile-2048 { font-size: 1.2rem; }
+        }
+
+        @media (max-width: 380px) {
+            .tile-2, .tile-4, .tile-8 { font-size: 1.8rem; }
+            .tile-16, .tile-32, .tile-64 { font-size: 1.6rem; }
+            .tile-128, .tile-256, .tile-512 { font-size: 1.3rem; }
+            .tile-1024, .tile-2048 { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>2048</h1>
+            <div class="score-container">
+                <div class="score-box">
+                    <div class="score-title">SCORE</div>
+                    <div class="score-value" id="score">0</div>
+                </div>
+                <div class="score-box">
+                    <div class="score-title">BEST</div>
+                    <div class="score-value" id="best-score">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-container" id="game-container">
+            <div class="game-message" id="game-message">
+                <p id="message-text"></p>
+                <button id="retry-button">Try Again</button>
+            </div>
+            
+            <div class="grid-container" id="grid-container">
+                <div class="grid-row">
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                    <div class="grid-cell"></div>
+                </div>
+                
+                <div class="tile-container" id="tile-container">
+                    <!-- Tiles will be generated here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="swipe-indicator">
+            Swipe or use arrow keys to move tiles
+        </div>
+        
+        <div class="instructions">
+            <p><strong>How to play:</strong> Use your arrow keys or swipe to move the tiles. When two tiles with the same number touch, they merge into one!</p>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" id="restart-button">New Game</button>
+            <button class="btn" id="submit-score">Submit Score</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let grid = [];
+        let score = 0;
+        let bestScore = localStorage.getItem('bestScore') || 0;
+        let gameOver = false;
+        let gameWon = false;
+        let startX, startY, endX, endY;
+        
+        // DOM elements
+        const scoreDisplay = document.getElementById('score');
+        const bestScoreDisplay = document.getElementById('best-score');
+        const tileContainer = document.getElementById('tile-container');
+        const gameMessage = document.getElementById('game-message');
+        const messageText = document.getElementById('message-text');
+        const retryButton = document.getElementById('retry-button');
+        const restartButton = document.getElementById('restart-button');
+        const submitScoreButton = document.getElementById('submit-score');
+        const gameContainer = document.getElementById('game-container');
+        const gridContainer = document.getElementById('grid-container');
+        
+        // Initialize the game
+        function initGame() {
+            grid = [
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0]
+            ];
+            
+            score = 0;
+            gameOver = false;
+            gameWon = false;
+            
+            scoreDisplay.textContent = '0';
+            bestScoreDisplay.textContent = bestScore;
+            
+            gameMessage.style.display = 'none';
+            tileContainer.innerHTML = '';
+            
+            addRandomTile();
+            addRandomTile();
+            updateGrid();
+        }
+        
+        // Add a random tile (2 or 4) to an empty cell
+        function addRandomTile() {
+            const emptyCells = [];
+            
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    if (grid[r][c] === 0) {
+                        emptyCells.push({r, c});
+                    }
+                }
+            }
+            
+            if (emptyCells.length > 0) {
+                const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                grid[randomCell.r][randomCell.c] = Math.random() < 0.9 ? 2 : 4;
+            }
+        }
+        
+        // Update the visual grid with perfect positioning
+        function updateGrid() {
+            tileContainer.innerHTML = '';
+            
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    if (grid[r][c] !== 0) {
+                        const tileValue = grid[r][c];
+                        const tile = document.createElement('div');
+                        tile.className = `tile tile-${tileValue} new-tile`;
+                        tile.textContent = tileValue;
+                        
+                        // Perfect positioning calculation
+                        // Each tile gets 22% width/height with 4% margin between them
+                        // First tile at 0%, second at 26% (22% + 4%), third at 52%, fourth at 78%
+                        const leftPosition = c * 26; // 26% per column (22% width + 4% margin)
+                        const topPosition = r * 26;  // 26% per row (22% height + 4% margin)
+                        
+                        tile.style.left = `${leftPosition}%`;
+                        tile.style.top = `${topPosition}%`;
+                        
+                        tileContainer.appendChild(tile);
+                    }
+                }
+            }
+        }
+        
+        // Move tiles in a direction
+        function move(direction) {
+            if (gameOver) return false;
+            
+            let moved = false;
+            const oldGrid = JSON.parse(JSON.stringify(grid));
+            
+            // Transpose the grid if moving vertically
+            if (direction === 'up' || direction === 'down') {
+                grid = transpose(grid);
+            }
+            
+            // Reverse rows if moving right or down
+            if (direction === 'right' || direction === 'down') {
+                for (let r = 0; r < 4; r++) {
+                    grid[r] = grid[r].reverse();
+                }
+            }
+            
+            // Move and merge tiles
+            for (let r = 0; r < 4; r++) {
+                const row = grid[r].filter(cell => cell !== 0);
+                
+                for (let c = 0; c < row.length - 1; c++) {
+                    if (row[c] === row[c + 1]) {
+                        row[c] *= 2;
+                        row[c + 1] = 0;
+                        score += row[c];
+                        
+                        // Check for win
+                        if (row[c] === 2048 && !gameWon) {
+                            gameWon = true;
+                            showMessage('You Win!', false);
+                        }
+                    }
+                }
+                
+                // Remove zeros and add to end
+                const newRow = row.filter(cell => cell !== 0);
+                while (newRow.length < 4) {
+                    newRow.push(0);
+                }
+                
+                if (JSON.stringify(grid[r]) !== JSON.stringify(newRow)) {
+                    moved = true;
+                }
+                
+                grid[r] = newRow;
+            }
+            
+            // Reverse rows back if moving right or down
+            if (direction === 'right' || direction === 'down') {
+                for (let r = 0; r < 4; r++) {
+                    grid[r] = grid[r].reverse();
+                }
+            }
+            
+            // Transpose back if moving vertically
+            if (direction === 'up' || direction === 'down') {
+                grid = transpose(grid);
+            }
+            
+            // If moved, add a new tile
+            if (moved || JSON.stringify(grid) !== JSON.stringify(oldGrid)) {
+                addRandomTile();
+                updateGrid();
+                updateScore();
+                
+                // Check for game over
+                if (isGameOver()) {
+                    showMessage('Game Over!', true);
+                }
+                
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // Transpose the grid (for vertical moves)
+        function transpose(matrix) {
+            return matrix[0].map((_, colIndex) => matrix.map(row => row[colIndex]));
+        }
+        
+        // Check if game is over
+        function isGameOver() {
+            // Check for empty cells
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    if (grid[r][c] === 0) {
+                        return false;
+                    }
+                }
+            }
+            
+            // Check for possible merges
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const current = grid[r][c];
+                    
+                    // Check right
+                    if (c < 3 && grid[r][c + 1] === current) {
+                        return false;
+                    }
+                    
+                    // Check down
+                    if (r < 3 && grid[r + 1][c] === current) {
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+        
+        // Update score display
+        function updateScore() {
+            scoreDisplay.textContent = score;
+            
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('bestScore', bestScore);
+                bestScoreDisplay.textContent = bestScore;
+            }
+        }
+        
+        // Show game message
+        function showMessage(text, isGameOver) {
+            messageText.textContent = text;
+            gameMessage.style.display = 'flex';
+            gameOver = isGameOver;
+        }
+        
+        // Submit score to Telegram
+        function submitScore() {
+            if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+                // For Telegram Web App
+                Telegram.WebApp.sendData(JSON.stringify({
+                    action: 'submit_score',
+                    score: score
+                }));
+            } else if (typeof TelegramGameProxy !== 'undefined') {
+                // For Telegram Game
+                TelegramGameProxy.score = score;
+                TelegramGameProxy.shareScore();
+            } else {
+                alert(`Your score is: ${score}. In Telegram, this would be submitted to the leaderboard.`);
+            }
+        }
+        
+        // Enhanced touch handling for Telegram
+        function handleSwipe(startX, startY, endX, endY) {
+            const diffX = endX - startX;
+            const diffY = endY - startY;
+            const absDiffX = Math.abs(diffX);
+            const absDiffY = Math.abs(diffY);
+            
+            // Minimum swipe distance (in pixels)
+            const minSwipeDistance = 30;
+            
+            // Determine primary direction
+            if (Math.max(absDiffX, absDiffY) < minSwipeDistance) {
+                return; // Swipe too short
+            }
+            
+            if (absDiffX > absDiffY) {
+                // Horizontal swipe
+                if (diffX > 0) {
+                    move('right');
+                } else {
+                    move('left');
+                }
+            } else {
+                // Vertical swipe
+                if (diffY > 0) {
+                    move('down');
+                } else {
+                    move('up');
+                }
+            }
+        }
+        
+        // Touch event handlers
+        gridContainer.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+        }, { passive: false });
+        
+        gridContainer.addEventListener('touchmove', function(e) {
+            e.preventDefault(); // Prevent scrolling in Telegram
+        }, { passive: false });
+        
+        gridContainer.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            if (!startX || !startY) return;
+            
+            const touch = e.changedTouches[0];
+            endX = touch.clientX;
+            endY = touch.clientY;
+            
+            handleSwipe(startX, startY, endX, endY);
+            
+            startX = null;
+            startY = null;
+        }, { passive: false });
+        
+        // Mouse events for desktop testing
+        gridContainer.addEventListener('mousedown', function(e) {
+            startX = e.clientX;
+            startY = e.clientY;
+        });
+        
+        gridContainer.addEventListener('mouseup', function(e) {
+            if (!startX || !startY) return;
+            
+            endX = e.clientX;
+            endY = e.clientY;
+            
+            handleSwipe(startX, startY, endX, endY);
+            
+            startX = null;
+            startY = null;
+        });
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (gameOver && e.key !== 'Enter') return;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    move('up');
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    move('down');
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    move('left');
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    move('right');
+                    break;
+                case 'Enter':
+                    if (gameOver) {
+                        initGame();
+                    }
+                    break;
+            }
+        });
+        
+        // Button event listeners
+        retryButton.addEventListener('click', initGame);
+        restartButton.addEventListener('click', initGame);
+        submitScoreButton.addEventListener('click', submitScore);
+        
+        // Initialize Telegram Web App
+        function initTelegram() {
+            if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+                Telegram.WebApp.ready();
+                Telegram.WebApp.expand();
+                
+                // Set up back button
+                Telegram.WebApp.BackButton.onClick(() => {
+                    if (gameOver) {
+                        Telegram.WebApp.close();
+                    } else {
+                        if (confirm('Are you sure you want to exit? Your progress will be lost.')) {
+                            Telegram.WebApp.close();
+                        }
+                    }
+                });
+                
+                Telegram.WebApp.BackButton.show();
+            }
+        }
+        
+        // Initialize the game when page loads
+        window.addEventListener('load', () => {
+            initTelegram();
+            initGame();
+        });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+    </script>
+</body>
+</html>
